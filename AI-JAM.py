@@ -1,9 +1,9 @@
 import streamlit as st
 import torch
 from diffusers import StableDiffusionPipeline
+from transformers import CLIPTextModel, CLIPTokenizer
 from PIL import Image
 import io
-import traceback
 import gc
 
 st.set_page_config(layout="wide", page_title="AI-JAM", page_icon="🎨")
@@ -47,64 +47,77 @@ st.markdown("""
 st.markdown('<p class="big-font">AI-JAM</p>', unsafe_allow_html=True)
 st.markdown('<p class="subheader">Flavor-Inspired Art Generator by Alsherazi Club</p>', unsafe_allow_html=True)
 
-@st.cache_resource
-def load_models():
-    try:
-        import torch
-        from diffusers import StableDiffusionPipeline
-        
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        model_id = "runwayml/stable-diffusion-v1-5"
-        
-        # Add progress indicator
-        with st.spinner("Loading models... This may take a few minutes."):
-            pipe = StableDiffusionPipeline.from_pretrained(
-                model_id,
-                torch_dtype=torch.float16 if device == "cuda" else torch.float32,
-                safety_checker=None  # Add this if you want to disable safety checker
-            )
-            pipe = pipe.to(device)
-        
-        return device, pipe
-    except Exception as e:
-        st.error(f"Error loading models: {str(e)}")
-        st.error("Please make sure you have enough memory and all required dependencies installed.")
-        return None, None
-
-try:
-    device, pipe = load_models()
-    if pipe is None:
-        st.stop()
-except Exception as e:
-    st.error(f"Failed to initialize models: {str(e)}")
-    st.stop()
+# Model loading
+if 'models_loaded' not in st.session_state:
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model_id = "runwayml/stable-diffusion-v1-5"
+    
+    pipe = StableDiffusionPipeline.from_pretrained(
+        model_id, 
+        torch_dtype=torch.float16 if device == "cuda" else torch.float32
+    )
+    pipe = pipe.to(device)
+    
+    clip_model = CLIPTextModel.from_pretrained("openai/clip-vit-base-patch32")
+    tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
+    clip_model = clip_model.to(device)
+    
+    st.session_state.pipe = pipe
+    st.session_state.clip_model = clip_model
+    st.session_state.tokenizer = tokenizer
+    st.session_state.device = device
+    st.session_state.models_loaded = True
 
 def generate_image_from_flavor(flavor_description, progress_bar, status_text):
-    prompt = f"A vibrant, artistic representation of {flavor_description}. Digital art, colorful, abstract, food illustration, family-friendly, non-offensive."
+    prompt = f"A vibrant, artistic representation of {flavor_description}. Digital art, colorful, abstract, food illustration."
     
+    # Reduced steps for faster generation
     num_inference_steps = 20
     
-    def callback(step: int, timestep: int, latents: torch.FloatTensor):
-        progress = min((step + 1) / num_inference_steps, 1.0)
-        progress_bar.progress(progress)
-        status_text.text(f"Generating image... {progress:.0%}")
-        return
-    
     try:
+        # Update progress for tokenization
+        progress_bar.progress(0.1)
+        status_text.text("Processing text... 10%")
+        
+        inputs = st.session_state.tokenizer(
+            prompt, 
+            padding="max_length", 
+            max_length=st.session_state.tokenizer.model_max_length, 
+            truncation=True, 
+            return_tensors="pt"
+        )
+        
+        progress_bar.progress(0.2)
+        status_text.text("Analyzing flavor description... 20%")
+        
         with torch.no_grad():
-            output = pipe(
-                prompt, 
-                num_inference_steps=num_inference_steps, 
-                callback=callback, 
-                callback_steps=1,
+            # Get text embeddings
+            text_embeddings = st.session_state.clip_model(**inputs.to(st.session_state.device)).last_hidden_state
+            progress_bar.progress(0.3)
+            status_text.text("Starting image generation... 30%")
+            
+            # Define callback for progress updates
+            def callback(step: int, timestep: int, latents: torch.FloatTensor):
+                progress = 0.3 + (step / num_inference_steps * 0.7)  # Scale from 30% to 100%
+                progress_bar.progress(progress)
+                percentage = int(progress * 100)
+                status_text.text(f"Generating image... {percentage}%")
+            
+            # Generate image with progress tracking
+            image = st.session_state.pipe(
+                prompt,
+                num_inference_steps=num_inference_steps,
                 guidance_scale=7.5,
-                negative_prompt="nsfw, offensive content, low quality, blurry"
-            )
-        image = output.images[0]
+                callback=callback,
+                callback_steps=1
+            ).images[0]
+            
+            progress_bar.progress(1.0)
+            status_text.text("Generation complete! 100%")
+            
         return image
     except Exception as e:
         st.error(f"Error in image generation: {str(e)}")
-        st.error(traceback.format_exc())
         return None
 
 # Flavor menu
@@ -117,11 +130,12 @@ predefined_flavors = [
     "A unique ice cream inspired by lavender and honey"
 ]
 
-flavor_menu = st.sidebar.empty()
-selected_flavor = flavor_menu.radio("Select a flavor inspiration or create your own:", 
-                                    ["Create your own"] + predefined_flavors, 
-                                    index=0,
-                                    format_func=lambda x: x if x != "Create your own" else "✨ Create your own flavor")
+selected_flavor = st.sidebar.radio(
+    "Select a flavor inspiration or create your own:", 
+    ["Create your own"] + predefined_flavors, 
+    index=0,
+    format_func=lambda x: x if x != "Create your own" else "✨ Create your own flavor"
+)
 
 # Main area
 if selected_flavor == "Create your own":
@@ -134,11 +148,9 @@ if st.button("🎨 Generate Artistic Impression"):
     status_text = st.empty()
     
     try:
-        status_text.text("Preparing to generate image...")
         image = generate_image_from_flavor(flavor_description, progress_bar, status_text)
         
         if image is not None:
-            status_text.text("Image generation complete!")
             st.image(image, caption=f"Artistic impression of: {flavor_description}", use_column_width=True)
             
             buf = io.BytesIO()
@@ -149,16 +161,10 @@ if st.button("🎨 Generate Artistic Impression"):
                 file_name=f"{flavor_description.replace(' ', '_')}_art.png",
                 mime="image/png"
             )
-        else:
-            st.error("Failed to generate a valid image. Please try again with a different description.")
     except Exception as e:
         st.error(f"An unexpected error occurred: {str(e)}")
-        st.error("Please try again or contact support if the issue persists.")
-        st.error("Detailed error information:")
-        st.code(traceback.format_exc())
     finally:
-        status_text.text("Process completed.")
-        progress_bar.empty()  # Clear the progress bar
+        progress_bar.empty()
         gc.collect()
         torch.cuda.empty_cache()
 
