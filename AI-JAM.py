@@ -6,7 +6,7 @@ import io
 import traceback
 import gc
 
-st.set_page_config(layout="wide", page_title="AI-JAM by Alsherazi", page_icon="🎨")
+st.set_page_config(layout="wide", page_title="AI-JAM", page_icon="🎨")
 
 st.markdown("""
     <style>
@@ -49,13 +49,35 @@ st.markdown('<p class="subheader">Flavor-Inspired Art Generator by Alsherazi Clu
 
 @st.cache_resource
 def load_models():
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    model_id = "runwayml/stable-diffusion-v1-5"
-    pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16 if device == "cuda" else torch.float32)
-    pipe = pipe.to(device)
-    return device, pipe
+    try:
+        import torch
+        from diffusers import StableDiffusionPipeline
+        
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model_id = "runwayml/stable-diffusion-v1-5"
+        
+        # Add progress indicator
+        with st.spinner("Loading models... This may take a few minutes."):
+            pipe = StableDiffusionPipeline.from_pretrained(
+                model_id,
+                torch_dtype=torch.float16 if device == "cuda" else torch.float32,
+                safety_checker=None  # Add this if you want to disable safety checker
+            )
+            pipe = pipe.to(device)
+        
+        return device, pipe
+    except Exception as e:
+        st.error(f"Error loading models: {str(e)}")
+        st.error("Please make sure you have enough memory and all required dependencies installed.")
+        return None, None
 
-device, pipe = load_models()
+try:
+    device, pipe = load_models()
+    if pipe is None:
+        st.stop()
+except Exception as e:
+    st.error(f"Failed to initialize models: {str(e)}")
+    st.stop()
 
 def generate_image_from_flavor(flavor_description, progress_bar, status_text):
     prompt = f"A vibrant, artistic representation of {flavor_description}. Digital art, colorful, abstract, food illustration, family-friendly, non-offensive."
