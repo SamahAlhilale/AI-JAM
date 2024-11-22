@@ -1,12 +1,10 @@
-@"
-huggingface_hub>=0.20.2
-diffusers>=0.24.0
+huggingface_hub>=0.16.4
+diffusers==0.21.4
 numpy<2
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch
 torchvision
-transformers>=4.36.0
-accelerate>=0.26.0
-streamlit>=1.28.0
-Pillow>=10.1.0
-"@ | Set-Content -Path requirements.txt -NoNewline -Encoding ASCII
+transformers==4.35.2
+accelerate==0.24.1
+streamlit==1.28.0
+Pillow==10.1.0
