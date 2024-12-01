@@ -139,7 +139,6 @@ if st.button("🎨 Generate your masterpiece"):
         if pipe is None:
             st.error("Model is not loaded. Please try refreshing the page.")
         else:
-            st.markdown("<p style='color: #cccccc; font-style: italic; text-align: center;'>Generation usually takes 30-40 seconds</p>", unsafe_allow_html=True)
             prompt = f"A vibrant, artistic representation of {flavor_description}. Digital art, colorful, abstract, food illustration."
             image = generate_art(prompt)
                 
