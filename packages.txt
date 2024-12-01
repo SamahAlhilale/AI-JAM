@@ -1,3 +1,5 @@
+@"
 python3-pip
 python3-dev
 build-essential
+"@ | Set-Content -Path packages.txt -NoNewline -Encoding ASCII
