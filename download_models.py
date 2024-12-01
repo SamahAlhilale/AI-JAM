@@ -2,10 +2,11 @@ import os
 from huggingface_hub import snapshot_download
 
 def download_model():
-    model_path = os.path.join(os.getcwd(), "model")
+    # Get absolute path for model directory
+    model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "model"))
     os.makedirs(model_path, exist_ok=True)
-
-    print("Downloading model files... This may take a while...")
+    
+    print(f"Downloading model files to {model_path}...")
     snapshot_download(
         repo_id="runwayml/stable-diffusion-v1-5",
         local_dir=model_path,
