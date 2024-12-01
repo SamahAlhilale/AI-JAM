@@ -54,7 +54,7 @@ st.markdown('<p class="subheader">Flavor-Inspired Art Generator</p>', unsafe_all
 def load_pipe():
     try:
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        st.info('Loading model... This may take a few minutes the first time...')
+        loading_message = st.info('Loading model... This may take a few minutes the first time...')
         
         pipe = StableDiffusionPipeline.from_pretrained(
             "runwayml/stable-diffusion-v1-5",
@@ -65,7 +65,8 @@ def load_pipe():
         
         if device == "cuda":
             pipe.enable_attention_slicing()
-        
+            
+        loading_message.empty()  # Remove the loading message
         return pipe
     except Exception as e:
         st.error(f"Error loading model: {str(e)}")
@@ -75,9 +76,8 @@ pipe = load_pipe()
 progress_text = st.empty()
 progress_bar = st.empty()
 
-
 def update_progress_callback(step: int, timestep: int, latents: torch.FloatTensor):
-    progress = min((step + 1) / 100, 1.0) * 100
+    progress = min((step + 1) / 20 , 1.0) * 100
     progress_bar.progress(min(progress / 100, 1.0))
     progress_text.markdown(f"<p class='progress-bar-text'>Generation Progress: {min(progress, 100):.0f}%</p>", 
                          unsafe_allow_html=True)
@@ -96,7 +96,7 @@ def generate_art(prompt):
             
             image = pipe(
                 prompt,
-                num_inference_steps=100,
+                num_inference_steps=20,  
                 guidance_scale=7.5,
                 callback=update_progress_callback,
                 callback_steps=1
