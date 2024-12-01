@@ -54,13 +54,14 @@ st.markdown('<p class="subheader">Flavor-Inspired Art Generator</p>', unsafe_all
 def load_pipe():
     try:
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        with st.spinner('Loading local model... This may take a few minutes the first time...'):
-            pipe = StableDiffusionPipeline.from_pretrained(
-                "./model",  # Updated to use local model path
-                torch_dtype=torch.float16 if device == "cuda" else torch.float32,
-                safety_checker=None,
-                requires_safety_checker=False
-            ).to(device)
+        st.info('Loading model... This may take a few minutes the first time...')
+        
+        pipe = StableDiffusionPipeline.from_pretrained(
+            "runwayml/stable-diffusion-v1-5",
+            torch_dtype=torch.float16 if device == "cuda" else torch.float32,
+            safety_checker=None,
+            requires_safety_checker=False
+        ).to(device)
         
         if device == "cuda":
             pipe.enable_attention_slicing()
@@ -74,13 +75,18 @@ pipe = load_pipe()
 progress_text = st.empty()
 progress_bar = st.empty()
 
+
 def update_progress_callback(step: int, timestep: int, latents: torch.FloatTensor):
     progress = min((step + 1) / 100, 1.0) * 100
     progress_bar.progress(min(progress / 100, 1.0))
     progress_text.markdown(f"<p class='progress-bar-text'>Generation Progress: {min(progress, 100):.0f}%</p>", 
                          unsafe_allow_html=True)
-
+    
 def generate_art(prompt):
+    if pipe is None:
+        st.error("Model failed to load. Please try refreshing the page.")
+        return None
+        
     try:
         device = pipe.device
         with torch.inference_mode():
@@ -130,24 +136,27 @@ if st.button("🎨 Generate your masterpiece"):
     if not flavor_description:
         st.warning("Please enter a flavor description first!")
     else:
-        st.markdown("<p style='color: #cccccc; font-style: italic; text-align: center;'>Generation usually takes 30-40 seconds</p>", unsafe_allow_html=True)
-        prompt = f"A vibrant, artistic representation of {flavor_description}. Digital art, colorful, abstract, food illustration."
-        image = generate_art(prompt)
-            
-        if image:
-            progress_bar.empty()
-            progress_text.empty()
-            
-            st.image(image, caption=f"Artistic impression of: {flavor_description}", width=None)
-     
-            buf = io.BytesIO()
-            image.save(buf, format="PNG", quality=100)
-            st.download_button(
-                label="📥 Download Your Artwork",
-                data=buf.getvalue(),
-                file_name=f"{flavor_description.replace(' ', '_')}_art.png",
-                mime="image/png"
-            )
+        if pipe is None:
+            st.error("Model is not loaded. Please try refreshing the page.")
+        else:
+            st.markdown("<p style='color: #cccccc; font-style: italic; text-align: center;'>Generation usually takes 30-40 seconds</p>", unsafe_allow_html=True)
+            prompt = f"A vibrant, artistic representation of {flavor_description}. Digital art, colorful, abstract, food illustration."
+            image = generate_art(prompt)
+                
+            if image:
+                progress_bar.empty()
+                progress_text.empty()
+                
+                st.image(image, caption=f"Artistic impression of: {flavor_description}", width=None)
+         
+                buf = io.BytesIO()
+                image.save(buf, format="PNG", quality=100)
+                st.download_button(
+                    label="📥 Download Your Artwork",
+                    data=buf.getvalue(),
+                    file_name=f"{flavor_description.replace(' ', '_')}_art.png",
+                    mime="image/png"
+                )
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🎨 About AI-JAM")
