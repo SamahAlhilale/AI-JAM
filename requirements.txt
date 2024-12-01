@@ -1,10 +1,8 @@
-diffusers==0.10.2
-transformers==4.25.1
-huggingface_hub==0.11.1
-numpy>=1.26.0
-torch
---extra-index-url https://download.pytorch.org/whl/cpu
-torchvision
-accelerate==0.15.0
+diffusers>=0.10.2
+transformers>=4.25.1
+accelerate>=0.15.0
+torch==2.0.1
+torchvision==0.15.2
 streamlit==1.28.0
 Pillow==10.1.0
+numpy>=1.24.0
