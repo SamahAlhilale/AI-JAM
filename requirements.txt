@@ -1,10 +1,11 @@
-diffusers==0.10.2
-huggingface-hub==0.11.1
-transformers==4.26.1
-numpy<2
+diffusers==0.16.1
+transformers==4.30.2
+huggingface-hub==0.16.4
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch
 torchvision
-accelerate==0.16.0
+accelerate==0.20.3
 streamlit==1.28.0
 Pillow==10.1.0
+numpy==1.24.3
+tokenizers==0.13.3
